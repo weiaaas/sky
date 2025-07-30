@@ -47,4 +47,7 @@ public interface OrderMapper {
 
     @Delete("delete from orders where id=#{id}")
     void detele(Long id);
+
+    @Select("select count(*) from orders where status=#{status}")
+    Integer countByStatus(Integer status);
 }
