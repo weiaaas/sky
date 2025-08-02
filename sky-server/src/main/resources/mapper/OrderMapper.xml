@@ -31,6 +31,39 @@
         </set>
         where id = #{id}
     </update>
+    <update id="updateBatch">
+        update orders
+        <set>
+            <if test="orders.cancelReason != null and orders.cancelReason!='' ">
+                cancel_reason=#{orders.cancelReason},
+            </if>
+            <if test="orders.rejectionReason != null and orders.rejectionReason!='' ">
+                rejection_reason=#{orders.rejectionReason},
+            </if>
+            <if test="orders.cancelTime != null">
+                cancel_time=#{orders.cancelTime},
+            </if>
+            <if test="orders.payStatus != null">
+                pay_status=#{orders.payStatus},
+            </if>
+            <if test="orders.payMethod != null">
+                pay_method=#{orders.payMethod},
+            </if>
+            <if test="orders.checkoutTime != null">
+                checkout_time=#{orders.checkoutTime},
+            </if>
+            <if test="orders.status != null">
+                status = #{orders.status},
+            </if>
+            <if test="orders.deliveryTime != null">
+                delivery_time = #{orders.deliveryTime}
+            </if>
+        </set>
+        where id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
     <select id="PageQuery" resultType="com.sky.entity.Orders">
         select * from orders
         <where>
@@ -54,6 +87,98 @@
             </if>
         </where>
         order by order_time desc
+    </select>
+        <select id="TurnoverStatistics" resultType="com.sky.entity.DateAmount">
+        select
+        date_format(order_time, '%Y-%m-%d') as orderTime,
+        sum(amount) as dateAmount
+        from orders
+        <where>
+            <if test="begin!=null">
+                 and order_time &gt; #{begin}
+            </if>
+            <if test="end!=null">
+                 and order_time &lt; #{end}
+            </if>
+            <if test="status!=null">
+                 and status=#{status}
+            </if>
+        </where>
+        group by orderTime
+        order by orderTime
+    </select>
+    <select id="ordersAStatistics" resultType="com.sky.entity.OrderCount">
+        select
+            date_format(order_time, '%Y-%m-%d') as orderTime,
+            count(*) as orderCount
+        from orders
+        <where>
+            <if test="begin!=null"> and order_time &gt; #{begin}</if>
+            <if test="end!=null"> and order_time &lt; #{end}</if>
+            <if test="status!=null"> and status=#{status}</if>
+        </where>
+        group by orderTime
+        order by orderTime
+    </select>
+    <select id="countByStatusAndTime" resultType="java.lang.Integer">
+        select count(*) from orders
+        <where>
+            <if test="begin!=null">
+                and order_time &gt; #{begin}
+            </if>
+            <if test="end!=null">
+                and order_time &lt; #{end}
+            </if>
+            <if test="status!=null">
+                and status=#{status}
+            </if>
+        </where>
+    </select>
+    <select id="top10" resultType="com.sky.dto.GoodsSalesDTO">
+        select od.name as name,sum(od.number) as number from
+        orders o left join order_detail od on o.id=od.order_id
+        <where>
+            <if test="begin!=null">
+                and order_time &gt; #{begin}
+            </if>
+            <if test="end!=null">
+                and order_time &lt; #{end}
+            </if>
+            <if test="status!=null">
+                and status=#{status}
+            </if>
+        </where>
+        group by name
+        order by number desc
+        limit 0,10
+    </select>
+    <select id="countByMap" resultType="java.lang.Integer">
+        select count(*) from orders
+        <where>
+            <if test="begin!=null">
+                and order_time &gt; #{begin}
+            </if>
+            <if test="end!=null">
+                and order_time &lt; #{end}
+            </if>
+            <if test="status!=null">
+                and status=#{status}
+            </if>
+        </where>
+    </select>
+    <select id="sumByMap" resultType="java.lang.Double">
+        select sum(amount) from orders
+        <where>
+            <if test="begin!=null">
+                and order_time &gt; #{begin}
+            </if>
+            <if test="end!=null">
+                and order_time &lt; #{end}
+            </if>
+            <if test="status!=null">
+                and status=#{status}
+            </if>
+        </where>
     </select>
 
 

@@ -31,7 +31,7 @@ public interface OrderService {
 
     OrderStatisticsVO statistics();
 
-    void confirm(Long id);
+    void confirm(OrdersConfirmDTO ordersConfirmDTO);
 
     void reject(OrdersRejectionDTO ordersRejectionDTO) throws Exception;
 
@@ -40,4 +40,6 @@ public interface OrderService {
     void delivery(Long id);
 
     void complete(Long id);
+
+    void remider(Long id);
 }

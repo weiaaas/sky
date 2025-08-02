@@ -1,14 +1,19 @@
 package com.sky.mapper;
 
 import com.github.pagehelper.Page;
-import com.sky.dto.OrdersDTO;
+import com.sky.dto.GoodsSalesDTO;
 import com.sky.dto.OrdersPageQueryDTO;
+import com.sky.entity.DateAmount;
+import com.sky.entity.OrderCount;
 import com.sky.entity.OrderDetail;
 import com.sky.entity.Orders;
+import com.sky.vo.SalesTop10ReportVO;
 import org.apache.ibatis.annotations.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @Mapper
 public interface OrderMapper {
@@ -50,4 +55,21 @@ public interface OrderMapper {
 
     @Select("select count(*) from orders where status=#{status}")
     Integer countByStatus(Integer status);
+
+    @Select("select * from orders where status=#{status} and order_time<#{orderTime}")
+    List<Orders> getByStatusAndOrderTime(Integer status,LocalDateTime orderTime);
+
+   void updateBatch(@Param("ids") List<Long> ids, Orders orders);
+
+   List<DateAmount> TurnoverStatistics(Map map);
+
+    List<OrderCount> ordersAStatistics(Map map);
+
+    Integer countByStatusAndTime(Map map);
+
+    List<GoodsSalesDTO> top10(Map map);
+
+   Integer countByMap(Map map);
+
+    Double sumByMap(Map map);
 }

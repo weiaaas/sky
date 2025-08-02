@@ -58,12 +58,12 @@ public class OrderController {
 
     /**
      * 接单
-     * @param id
+     * @param ordersConfirmDTO
      * @return
      */
     @PutMapping("/confirm")
-    public Result confirm(@RequestParam Long id){
-        orderService.confirm(id);
+    public Result confirm(@RequestBody OrdersConfirmDTO ordersConfirmDTO){
+        orderService.confirm(ordersConfirmDTO);
         return Result.success();
     }
     /*

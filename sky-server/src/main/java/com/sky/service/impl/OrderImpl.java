@@ -1,9 +1,11 @@
 package com.sky.service.impl;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
+import com.sky.WebSocket.WebSocketServer;
 import com.sky.constant.MessageConstant;
 import com.sky.context.BaseContext;
 import com.sky.dto.*;
@@ -47,6 +49,8 @@ public class OrderImpl implements OrderService {
     private UserMapper userMapper;
     @Autowired
     private WeChatPayUtil weChatPayUtil;
+    @Autowired
+    private WebSocketServer webSocketServer;
 
     @Value("${sky.shop.address}")
     private String ShopAddress;
@@ -169,6 +173,13 @@ public class OrderImpl implements OrderService {
                 .build();
 
         orderMapper.update(orders);
+        //通过webSocket推送消息到商户
+        Map map=new HashMap();
+        map.put("type",1); //1为来单提醒，2为用户催单
+        map.put("orderId",ordersDB.getId());
+        map.put("content","订单号"+outTradeNo);
+        String json = JSON.toJSONString(map);
+        webSocketServer.sendToAllClient(json);
     }
 
     /**
@@ -189,17 +200,30 @@ public class OrderImpl implements OrderService {
         ordersPageQueryDTO.setStatus(status);
 
         Page<Orders> pageResult = orderMapper.PageQuery(ordersPageQueryDTO);
+
+        List<Long> ids=pageResult.getResult().stream()
+                .map(Orders::getId)
+                .collect(Collectors.toList());
+        Map<Long,List<OrderDetail>> OrderDetailMap=orderDetailMapper.getByIds(ids).stream()
+                .collect(Collectors.groupingBy(OrderDetail::getOrderId));
+//        for (Orders orders : pageResult) {
+//            Long orderID = orders.getId();
+//            List<OrderDetail> orderDetail = orderDetailMapper.getByID(orderID);
+//            OrderVO orderVO = new OrderVO();
+//            BeanUtils.copyProperties(orders, orderVO);
+//            orderVO.setOrderDetailList(orderDetail);
+//            list.add(orderVO);
+//        }
         //结果封装
-        List<OrderVO> list = new ArrayList<>();
-        //构建返回数据
-        for (Orders orders : pageResult) {
-            Long orderID = orders.getId();
-            List<OrderDetail> orderDetail = orderDetailMapper.getByID(orderID);
-            OrderVO orderVO = new OrderVO();
-            BeanUtils.copyProperties(orders, orderVO);
-            orderVO.setOrderDetailList(orderDetail);
-            list.add(orderVO);
-        }
+        List<OrderVO> list = pageResult.getResult().stream()
+                .map(orders->{
+                    OrderVO orderVO=new OrderVO();
+                    BeanUtils.copyProperties(orders,orderVO);
+                    List<OrderDetail> orderDetailList=OrderDetailMap.getOrDefault(orders.getId(),Collections.emptyList());
+                    orderVO.setOrderDetailList(orderDetailList);
+                    return orderVO;
+                })
+                .collect(Collectors.toList());
         return new PageResult(pageResult.getTotal(), list);
     }
 
@@ -328,8 +352,8 @@ public class OrderImpl implements OrderService {
     }
 
     @Override
-    public void confirm(Long id) {
-        Orders orders = orderMapper.getById(id);
+    public void confirm(OrdersConfirmDTO ordersConfirmDTO) {
+        Orders orders = orderMapper.getById(ordersConfirmDTO.getId());
         orders.setStatus(Orders.CONFIRMED);
         orderMapper.update(orders);
     }
@@ -397,6 +421,24 @@ public class OrderImpl implements OrderService {
         orders.setStatus(Orders.COMPLETED);
         orderMapper.update(orders);
     }
+
+    @Override
+    public void remider(Long id) {
+        Orders orders = orderMapper.getById(id);
+        if(orders==null){
+            throw  new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
+
+        }
+        Map map=new HashMap();
+        map.put("type",2);//客户催单
+        map.put("orderID",id);
+        map.put("content","订单号"+orders.getNumber());
+        String jsonString = JSON.toJSONString(map);
+        //使用websocket发送催单信息
+        webSocketServer.sendToAllClient(jsonString);
+
+    }
+
     private void CheckOutRange(String address){
         Map map=new HashMap();
         map.put("address",ShopAddress);
@@ -443,7 +485,7 @@ public class OrderImpl implements OrderService {
 
         //数据解析
         JSONObject result=jsonObject.getJSONObject("result");
-        JSONArray jsonArray= (JSONArray) result.get("route");
+        JSONArray jsonArray= (JSONArray) result.get("routes");
         Integer distance= (Integer) ((JSONObject)jsonArray.get(0)).get("distance");
         if(distance>5000){
             //配送距离超过5000米
